@@ -1,0 +1,17 @@
+# Spark jobs. Keep pyspark on the cluster's Spark version (4.1.1).
+pyspark==4.1.1
+pyarrow>=18
+
+# Training and search
+torch>=2.7,<3
+numpy>=2.1,<3
+chess>=1.11,<2
+
+# Data, config, and plots
+pandas>=2.3,<3
+pyyaml>=6.0
+zstandard>=0.23
+matplotlib>=3.10
+
+# Tests
+pytest>=8

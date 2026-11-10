@@ -1,0 +1,14 @@
+# Defaults shared by every condition. null means not decided yet.
+network:
+  residual_blocks: null
+  filters: null
+
+mcts:
+  simulations: null
+
+budget:
+  network_evaluations: null  # set from experiments/pilot.py
+
+paths:
+  hdfs_root: null
+  shared_disk: /s/bach/a/class/cs435/cs435a/chess-zero
