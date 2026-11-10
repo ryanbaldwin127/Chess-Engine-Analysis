@@ -1,0 +1,31 @@
+# Data and model artifacts: never commit these
+data/
+checkpoints/
+*.pgn
+*.pgn.zst
+*.zst
+*.parquet
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Spark and Hadoop local output
+spark-warehouse/
+metastore_db/
+derby.log
+.crc
+*.crc
+
+# Logs and editors
+logs/
+*.log
+.vscode/
+.idea/
+.DS_Store
