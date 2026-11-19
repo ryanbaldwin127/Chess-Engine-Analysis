@@ -1,5 +1,22 @@
 # Chess-Engine-Analysis
 
+How much of a fixed compute budget should an AlphaZero-style chess engine spend
+learning from human games before switching to self-play? Five conditions spend
+0, 25, 50, 75 and 100% of the same budget on human games, then the rest on
+self-play.
+
+![How each condition splits the budget](docs/diagrams/conditions.png)
+
+## Documentation
+
+- [Decisions](docs/decisions.md): decisions made during implementation and why
+- [Project proposal](docs/proposal.pdf)
+- [Method reference v1](docs/method-reference-v1.pdf): the full design, decisions and references
+- [System overview diagram](docs/diagrams/system-overview.png): data flow from Lichess games to training and evaluation
+- [Component dependencies diagram](docs/diagrams/component-dependencies.png): who owns each part and what it imports
+- [File structure](docs/file-structure.md): what each file in the repo is for
+- [CLAUDE.md](CLAUDE.md): project rules and conventions for Claude Code sessions
+
 ## Setup
 
 ```bash
