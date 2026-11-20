@@ -6,7 +6,8 @@ results should be read. Don't rewrite old entries: if a decision changes, add a 
 entry and mark the old one as superseded.
 
 Each entry has a date, a status (decided, open or superseded), the decision, why we
-made it, and the alternatives we considered.
+made it, and the alternatives we considered. Sources are cited by key, like [Maia],
+from [references.md](references.md).
 
 ## Index
 
@@ -32,6 +33,7 @@ made it, and the alternatives we considered.
 | 18 | [Keep the simulation count fixed](#18-keep-the-simulation-count-fixed) | Open |
 | 19 | [Learning-rate schedule](#19-learning-rate-schedule) | Open |
 | 20 | [Starting value for unvisited moves in search](#20-starting-value-for-unvisited-moves-in-search) | Open |
+| 21 | [Use Stockfish 19 from the official release for evaluation](#21-use-stockfish-19-from-the-official-release-for-evaluation) | Decided |
 
 ---
 
@@ -142,7 +144,7 @@ made it, and the alternatives we considered.
 - **Notes:**
   - Record how many positions this removes, for the write-up.
   - The value target is unchanged, so a game decided by a time-scramble blunder still labels its earlier positions with that result. That's a known source of noise in z that this rule doesn't fix.
-  - Maia (McIlroy-Young et al., 2020), a model trained to predict human moves on Lichess games, used a similar low-clock cutoff. Check the paper's exact rule before citing it.
+  - Precedent: Maia [Maia], a model trained to predict human moves on Lichess games, discarded moves made with less than 30 seconds left, according to Microsoft Research's write-up of the project. Quote the paper's methods section for the exact rule in the write-up.
 
 ## 11. Which time controls go into the training rows
 
@@ -228,3 +230,19 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 - **Question:** What value should search assume for a move it hasn't visited yet (first-play urgency, FPU)?
 - **Recommendation:** Use the parent node's network value, as in CLAUDE.md, and test that the parent and child values use the same player's perspective. Leela's version (parent value minus a penalty that grows with the prior probability of the moves already visited) suits chess better at scale. Try it only if a match shows search quality is the weak point.
 - **Alternatives:** Assuming 0, a draw (spreads visits across moves the network already rates poorly).
+
+---
+
+## 21. Use Stockfish 19 from the official release for evaluation
+
+- **Date:** Nov 20, 2026
+- **Status:** Decided.
+- **Decision:** Every evaluation uses one shared copy of Stockfish 19, at `engines/stockfish-19/stockfish` on the shared folder (`paths.stockfish` in `configs/base.yaml`). It's the official Linux x86-64 "universal" build, released Sep 5, 2026, tag `sf_19`, and is driven from Python through python-chess's `chess.engine`.
+  - The download matched GitHub's published SHA-256 digest (`9defc0d4e55d49c65a6d042f3e571a39fcea499ade6dbe741b53b8c65e03611f` for the archive). `VERSION.txt` and `SHA256-binary.txt` in the same folder record the details.
+  - On a fish machine (Intel i9-13900K) it searches about 1.1M nodes per second on one thread in Stockfish's built-in benchmark.
+- **Why:**
+  - One pinned version means every Elo and move-quality number is measured against the same engine.
+  - The universal build picks the fastest code path for each CPU, so the same file works on every fish machine.
+  - The PyPI `stockfish` package is only a Python wrapper and doesn't include the engine. We'd still need this download, and python-chess already provides the same functionality.
+- **Alternatives:** The PyPI wrapper (doesn't include the engine); building from source (slower to set up, with no benefit here).
+- **Related, still open:** which node limits make up the Stockfish ladder in the Elo pool. Our models will be far weaker than Stockfish's built-in skill levels, so node limits (e.g. 1, 10, 100, 1000) are the likely way to get weaker opponents. They're also reproducible, which skill levels aren't. Settle this when writing `evaluation/match_runner.py`.

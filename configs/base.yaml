@@ -12,3 +12,4 @@ budget:
 paths:
   hdfs_root: null
   shared_disk: /s/bach/a/class/cs435/cs435a/chess-zero
+  stockfish: /s/bach/a/class/cs435/cs435a/chess-zero/engines/stockfish-19/stockfish  # Stockfish 19, evaluation only

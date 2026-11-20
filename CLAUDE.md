@@ -60,9 +60,10 @@ One learner per condition trains the network. Everything else produces data for 
 - **Human rows:** built by Spark on our own clusters' HDFS (Parquet: game ID, ply, FEN, UCI move, z, both ratings). Each person's cluster is private to them, and HDFS is **not** reachable from the fish machines. Finished outputs go to the shared folder, which is the only place the whole team and the fish machines can all read.
 - **Shared folder:** `/s/bach/a/class/cs435/cs435a/chess-zero` (department network drive, seen by every lab machine, group `cs435a`). It currently has:
   - `data/`: Lichess downloads and `chunks_2026-10/`
-  - `checkpoints/`, `results/`, `engines/` (empty; Stockfish goes in `engines/`)
+  - `engines/stockfish-19/`: Stockfish 19 with its version and checksum notes
+  - `checkpoints/`, `results/` (empty)
   - Planned per-condition layout: `checkpoints/<condition>/{weights,inbox,checkpoints,logs}`.
-  - A default ACL keeps everything group-writable (the department requires `g+rwx`). Files moved in with `mv` keep their old permissions; use `cp` or `chmod -R g+rwX`.
+  - A default ACL keeps everything group-writable (the department requires `g+rwx`). Files brought in with `mv` or `cp` keep their old, possibly private, permissions; run `chmod -R g+rwX` on them.
   - Spark jobs read it with `file:///s/bach/...` paths. A plain `/s/bach/...` path is read as HDFS.
 - **Self-play workers:** stateless. Load the latest weights from the folder, play many games at once with batched network calls, write finished games to the inbox. They can start or stop on any machine at any time. Playing with slightly old weights is fine.
 - **Learner:** the only stateful process. It resumes from its checkpoint. DDP is optional. It's probably unnecessary for a ~2.4M-parameter net, but we may run one small DDP side experiment for the distributed-training learning goal.
@@ -122,7 +123,7 @@ One learner per condition trains the network. Everything else produces data for 
   - BayesElo/Ordo with confidence intervals.
   - Greedy MCTS is deterministic. Without varied openings, repeated games are identical.
 - **Move quality:** Stockfish at a fixed node/depth limit (not "skill level"); report average centipawn loss.
-- **Stockfish usage:** one engine per CPU core, Threads = 1, one engine per Spark partition (not per row), node limits for reproducibility. Stockfish isn't installed on the lab machines; put one copy in `engines/` on the shared folder.
+- **Stockfish usage:** one engine per CPU core, Threads = 1, one engine per Spark partition (not per row), node limits for reproducibility. Use the shared copy of Stockfish 19 at `engines/stockfish-19/stockfish` (path in `configs/base.yaml` as `paths.stockfish`), driven through python-chess's `chess.engine`. It isn't a pip package, so it's not in `requirements.txt`. Our models will be far weaker than Stockfish's built-in skill levels, so build weaker opponents with node limits (e.g. 1, 10, 100, 1000 nodes).
 - **Fixed test positions:** decided in advance and identical for every model.
 
 ## Required tests (write these before trusting training)
@@ -188,6 +189,7 @@ The pilot measures, per machine type: **R_sp** (self-play evals/sec per worker) 
 Copies in this repo, under `docs/`:
 
 - `decisions.md`: decisions made during implementation and why
+- `references.md`: papers, tools and data sources, cited by key (e.g. [AlphaZero]). Add new sources there
 - `proposal.pdf`: the project proposal
 - `method-reference-v1.pdf`: team reference (full design, decisions, FAQ, references). Live version: https://claude.ai/artifact/4AxnwYDL4dEJUeXdf9TtCP
 - `diagrams/`: system overview, component dependencies, and the conditions chart. Live system diagram: https://claude.ai/artifact/JdrusZQru6PpRvB3xnf39q
