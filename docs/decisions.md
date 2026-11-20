@@ -6,7 +6,8 @@ results should be read. Don't rewrite old entries: if a decision changes, add a 
 entry and mark the old one as superseded.
 
 Each entry has a date, a status (decided, open or superseded), the decision, why we
-made it, and the alternatives we considered.
+made it, and the alternatives we considered. Sources are cited by key, like [Maia],
+from [references.md](references.md).
 
 ## Index
 
@@ -143,7 +144,7 @@ made it, and the alternatives we considered.
 - **Notes:**
   - Record how many positions this removes, for the write-up.
   - The value target is unchanged, so a game decided by a time-scramble blunder still labels its earlier positions with that result. That's a known source of noise in z that this rule doesn't fix.
-  - Maia (McIlroy-Young et al., 2020), a model trained to predict human moves on Lichess games, used a similar low-clock cutoff. Check the paper's exact rule before citing it.
+  - Precedent: Maia [Maia], a model trained to predict human moves on Lichess games, discarded moves made with less than 30 seconds left, according to Microsoft Research's write-up of the project. Quote the paper's methods section for the exact rule in the write-up.
 
 ## 11. Which time controls go into the training rows
 

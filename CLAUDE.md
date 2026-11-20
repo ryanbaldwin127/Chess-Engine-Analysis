@@ -189,6 +189,7 @@ The pilot measures, per machine type: **R_sp** (self-play evals/sec per worker) 
 Copies in this repo, under `docs/`:
 
 - `decisions.md`: decisions made during implementation and why
+- `references.md`: papers, tools and data sources, cited by key (e.g. [AlphaZero]). Add new sources there
 - `proposal.pdf`: the project proposal
 - `method-reference-v1.pdf`: team reference (full design, decisions, FAQ, references). Live version: https://claude.ai/artifact/4AxnwYDL4dEJUeXdf9TtCP
 - `diagrams/`: system overview, component dependencies, and the conditions chart. Live system diagram: https://claude.ai/artifact/JdrusZQru6PpRvB3xnf39q

@@ -10,6 +10,7 @@ self-play.
 ## Documentation
 
 - [Decisions](docs/decisions.md): decisions made during implementation and why
+- [References](docs/references.md): papers, tools and data sources, with what each is used for
 - [Project proposal](docs/proposal.pdf)
 - [Method reference v1](docs/method-reference-v1.pdf): the full design, decisions and references
 - [System overview diagram](docs/diagrams/system-overview.png): data flow from Lichess games to training and evaluation
