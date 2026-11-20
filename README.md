@@ -40,7 +40,7 @@ The team's shared directory is `/s/bach/a/class/cs435/cs435a/chess-zero`:
 | `data/` | Source PGN files and other raw data |
 | `checkpoints/` | Model checkpoints |
 | `results/` | Match results, tables, and plots |
-| `engines/` | Stockfish and other engine binaries |
+| `engines/` | Engine binaries: Stockfish 19 is at `engines/stockfish-19/stockfish` |
 
 The directory is shared with the `cs435a` group and must keep `g+rwx`. A default
 ACL gives anything created inside it group access automatically. Files moved in
