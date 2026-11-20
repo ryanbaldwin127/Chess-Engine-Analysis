@@ -22,7 +22,7 @@ We train AlphaZero-style chess models (small ResNet + MCTS) and test **how much 
 | Data pipeline | `pipeline/chunk_pgn.py`, `filter_games.py`, `make_rows.py` | Munisa |
 | Opening book | `pipeline/opening_book.py` | Kylie |
 | Training and phase switch | `training/train_supervised.py`, `selfplay_worker.py`, `train_selfplay.py`, `run_condition.py` | Ryan (supervised with Munisa) |
-| Launch scripts | `training/launch_workers.sh`, `training/scan_gpus.sh` | Josh |
+| Launch scripts | `training/launch_workers.sh`, `training/scan_gpus.sh` | Unassigned (based on scripts from Cam, a friend outside the team) |
 | Evaluation | `evaluation/sanity_checks.py`, `move_analysis.py`, `mate_puzzles.py`, `opening_analysis.py` | Kylie |
 | Matches and Elo | `evaluation/match_runner.py` | Munisa |
 | Pilot, scaling test, plots | `experiments/pilot.py`, `experiments/scaling_test.py`, `analysis/plots.py` | Josh (pilot with Munisa) |
@@ -66,13 +66,13 @@ One learner per condition trains the network. Everything else produces data for 
   - Spark jobs read it with `file:///s/bach/...` paths. A plain `/s/bach/...` path is read as HDFS.
 - **Self-play workers:** stateless. Load the latest weights from the folder, play many games at once with batched network calls, write finished games to the inbox. They can start or stop on any machine at any time. Playing with slightly old weights is fine.
 - **Learner:** the only stateful process. It resumes from its checkpoint. DDP is optional. It's probably unnecessary for a ~2.4M-parameter net, but we may run one small DDP side experiment for the distributed-training learning goal.
-- **No Ray, no cluster manager.** Processes run in tmux sessions launched over SSH by `training/launch_workers.sh` (adapted from a friend's UTTT project that ran on the same machines).
+- **No Ray, no cluster manager.** Processes run in tmux sessions launched over SSH by `training/launch_workers.sh`, adapted from Cam's scripts for his Ultimate Tic-Tac-Toe (UTTT) project, which ran on the same machines. Each process gets a detached tmux session on its own host, so it survives a dropped SSH connection.
 
 ### File hand-off rules
 
 - Write files under a temporary name **in the same directory**, then rename. Never let a reader see a half-written file.
 - Save games in batches (tens to a few hundred per file), not one file per game.
-- Workers load a small **weights-only** file. Optimizer state and any replay buffer go in separate, less frequent checkpoint files. (The friend's project had a ~3 GB checkpoint that every worker reloaded.)
+- Workers load a small **weights-only** file. Optimizer state and any replay buffer go in separate, less frequent checkpoint files. (Cam's project had a ~3 GB checkpoint that every worker reloaded.)
 - **Never swallow exceptions when loading weights.** A silent `except: return False` leaves workers playing with stale weights while the metrics look fine.
 - Expect the network drive to show a new file a few seconds late. Code must tolerate that rather than assume immediate visibility.
 
@@ -140,7 +140,7 @@ Tests live in `tests/` (`test_encoding.py`, `test_mcts.py`, `test_game.py`). Run
 - **Environment:** random vs random over thousands of games, where every game ends; Stockfish levels rank correctly in the match runner; material-count MCTS finds mate-in-1/2.
 - No board augmentation (rotations and reflections are invalid in chess). If anyone adds left-right mirroring, it's only valid without castling rights, and the policy must be remapped. Test it by re-encoding.
 
-## Engineering gotchas (from the friend's project, all real bugs)
+## Engineering gotchas (from Cam's UTTT project, all real bugs)
 
 - `torch.compile`: keep a handle on the raw module. Load weights into it and save its `state_dict`. Compiled modules add an `_orig_mod.` key prefix, and compiling twice can return a non-module.
 - **Periodic triggers:** use `if count >= next_at: next_at += N`, not `if count % N == 0` (it fires repeatedly while `count` doesn't change).
