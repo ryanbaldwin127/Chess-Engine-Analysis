@@ -111,10 +111,10 @@ if __name__ == "__main__":
             # Propogate result back through the tree and update nodes along the way
             self.backpropogation(node, result)
 
-            return max(
-                self.root.children, 
-                key = lambda child: child.visits
-            )
+        return max(
+            self.root.children, 
+            key = lambda child: child.visits
+        )
 
     
 
