@@ -63,7 +63,7 @@ One learner per condition trains the network. Everything else produces data for 
   - `engines/stockfish-19/`: Stockfish 19 with its version and checksum notes
   - `checkpoints/`, `results/` (empty)
   - Planned per-condition layout: `checkpoints/<condition>/{weights,inbox,checkpoints,logs}`.
-  - A default ACL keeps everything group-writable (the department requires `g+rwx`). Files moved in with `mv` keep their old permissions; use `cp` or `chmod -R g+rwX`.
+  - A default ACL keeps everything group-writable (the department requires `g+rwx`). Files brought in with `mv` or `cp` keep their old, possibly private, permissions; run `chmod -R g+rwX` on them.
   - Spark jobs read it with `file:///s/bach/...` paths. A plain `/s/bach/...` path is read as HDFS.
 - **Self-play workers:** stateless. Load the latest weights from the folder, play many games at once with batched network calls, write finished games to the inbox. They can start or stop on any machine at any time. Playing with slightly old weights is fine.
 - **Learner:** the only stateful process. It resumes from its checkpoint. DDP is optional. It's probably unnecessary for a ~2.4M-parameter net, but we may run one small DDP side experiment for the distributed-training learning goal.

@@ -43,8 +43,9 @@ The team's shared directory is `/s/bach/a/class/cs435/cs435a/chess-zero`:
 | `engines/` | Engine binaries: Stockfish 19 is at `engines/stockfish-19/stockfish` |
 
 The directory is shared with the `cs435a` group and must keep `g+rwx`. A default
-ACL gives anything created inside it group access automatically. Files moved in
-with `mv` keep their old permissions, so use `cp`, or fix them afterwards:
+ACL gives new files created inside it group access automatically. Files brought
+in with `mv` or `cp` keep the permissions they had before, which may be private,
+so fix them afterwards:
 
 ```bash
 chmod -R g+rwX /s/bach/a/class/cs435/cs435a/chess-zero/<path>
