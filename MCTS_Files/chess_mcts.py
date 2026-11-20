@@ -2,12 +2,17 @@ import math
 import random
 import chess
 from node import Node
+from stockfish_interface import StockfishEvaluator
 
 class MCTS:
-    def __init__(self, exploration_constant = 2):
+    def __init__(self, exploration_constant = 2, stockfish_nodes = 1000):
         self.root = None
         self.exploration_constant = exploration_constant
         self.node_count = 0
+
+        self.evaluator = StockfishEvaluator(
+            nodes = stockfish_nodes
+        )
     
     '''
     create_a_node method takes a given board state and creates the root based on that to be expanded.
@@ -39,10 +44,12 @@ class MCTS:
         while not node.is_terminal():
             if not node.is_fully_expanded():
                 return node
+            if not node.children:
+                return node
             
             node = max(node.children,
                         key = lambda child: child.uct_score(node, self.exploration_constant))
-            return node
+        return node
 
     '''
     Below is the expansion method.  First, we check to see if the node in question is fully expanded (seeing if there are
@@ -53,7 +60,7 @@ class MCTS:
     '''    
 
     def expansion(self, node):
-        if node.is_fully_expanded():
+        if node.is_terminal or node.is_fully_expanded():
             return node
 
         move = random.choice(node.untried_moves)
@@ -90,11 +97,25 @@ class MCTS:
         else 
             return 0
     
+    def stockfish_simulation(self, node):
+        board = node.state.copy()
+
+        if board.is_checkmate():
+            return 0.0
+        if board.is_game_over():
+            return 0.5
+        score = self.evaluator.evaluate(board)
+        reward = 1.0 / (1.0 + math.exp(-score/2.0))
+        
+        return reward
+    
     def backpropogation(self, node, result):
         while node is not None:
             node.visits += 1
             node.total_reward += result
             
+            #The result here is to switch the perspective for previous player
+            result = 1.0 - result
             node = node.parent
 
 if __name__ == "__main__":
@@ -107,14 +128,19 @@ if __name__ == "__main__":
             #Expansion method
             node = self.expansion(node)
             #Simulate Moves to a terminal state
-            result = self.simulation(node)
+            #result = self.simulation(node)
+            result = self.stockfish_simulation(node)
             # Propogate result back through the tree and update nodes along the way
             self.backpropogation(node, result)
 
-        return max(
+        if not self.root.children:
+            return None
+        
+        best_child = max(
             self.root.children, 
             key = lambda child: child.visits
         )
+        return best_child.action
 
     
 
