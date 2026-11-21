@@ -79,11 +79,12 @@ One learner per condition trains the network. Everything else produces data for 
 
 ## Model and search
 
+- **Contract:** `chesszero/encoding.py` documents the exact input planes and move-index layout, and `chesszero/model.py` the shapes. Change them only together. Read settings with `chesszero/config.py` (`load_config`) at the start of each script and pass plain values in.
 - **Input:** 8×8 planes. 12 piece planes (type × colour), plus side to move, castling rights, en passant and the 50-move counter. **Always encoded from the side to move's view** (own vs opponent pieces, board flipped for Black). No move history (a known simplification).
 - **Output:** policy over 4,672 move slots (AlphaZero encoding); value in [-1, 1].
 - **Legal-move mask:** set illegal slots to -inf before the softmax, in **both** the training loss and the MCTS priors. Legal moves come from python-chess `board.legal_moves`.
 - **Size (tentative):** 8 residual blocks × 128 channels, about 2.4M parameters, about 10 MB.
-- **Policy head:** don't bottleneck it to 2 channels before the 4,672-way FC layer. Use a wider first conv (e.g. 32) or a convolutional head.
+- **Policy head:** convolutional, with no fully connected layer: conv3x3 → conv1x1 to 73 move planes, flattened to 4,672 logits. A fully connected head would be either a 2-channel bottleneck or about 9.6M weights. See `docs/decisions.md` #22.
 - **Loss:** masked policy cross-entropy + value MSE + L2 weight decay.
   - Policy target: one-hot human move (supervised) or normalized MCTS visit counts (self-play).
   - Value target: z from the side to move's view (+1 win, 0 draw, -1 loss).

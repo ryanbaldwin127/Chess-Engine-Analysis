@@ -34,6 +34,7 @@ from [references.md](references.md).
 | 19 | [Learning-rate schedule](#19-learning-rate-schedule) | Open |
 | 20 | [Starting value for unvisited moves in search](#20-starting-value-for-unvisited-moves-in-search) | Open |
 | 21 | [Use Stockfish 19 from the official release for evaluation](#21-use-stockfish-19-from-the-official-release-for-evaluation) | Decided |
+| 22 | [Use a convolutional policy head](#22-use-a-convolutional-policy-head) | Decided |
 
 ---
 
@@ -246,3 +247,11 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
   - The PyPI `stockfish` package is only a Python wrapper and doesn't include the engine. We'd still need this download, and python-chess already provides the same functionality.
 - **Alternatives:** The PyPI wrapper (doesn't include the engine); building from source (slower to set up, with no benefit here).
 - **Related, still open:** which node limits make up the Stockfish ladder in the Elo pool. Our models will be far weaker than Stockfish's built-in skill levels, so node limits (e.g. 1, 10, 100, 1000) are the likely way to get weaker opponents. They're also reproducible, which skill levels aren't. Settle this when writing `evaluation/match_runner.py`.
+
+## 22. Use a convolutional policy head
+
+- **Date:** Nov 20, 2026
+- **Status:** Decided. Implemented in `chesszero/model.py`.
+- **Decision:** The policy head is conv3x3 → batch norm → ReLU → conv1x1 to 73 planes, flattened to 4,672 logits. There's no fully connected layer. The flattening order fixes the move index as `move_plane * 64 + square`, which `chesszero/encoding.py` documents and must follow.
+- **Why:** CLAUDE.md asked for a policy head that isn't squeezed to 2 channels before a 4,672-way fully connected layer (from Cam's project [CamUTTT]). But widening that version to 32 channels makes the fully connected layer 32 × 64 × 4,672 ≈ 9.6M weights, almost four times the 2.4M-parameter tower, so the head would dominate the network's size and cost. A convolutional head outputs AlphaZero's 73 move planes on the 8×8 board directly [AlphaZero], with about 157,000 weights, and keeps every square's moves tied to that square, as Leela's convolutional heads do [Lc0]. The whole network is about 2.56M parameters at 8 blocks × 128 filters.
+- **Alternatives:** AlphaGo Zero's 2-channel head with a fully connected layer [AlphaGoZero] (about 0.6M weights, but the bottleneck CLAUDE.md warns against); a 32-channel head with a fully connected layer (about 9.6M weights).
