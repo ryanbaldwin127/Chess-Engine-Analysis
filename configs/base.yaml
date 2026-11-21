@@ -1,7 +1,7 @@
 # Defaults shared by every condition. null means not decided yet.
 network:
-  residual_blocks: null
-  filters: null
+  residual_blocks: 8   # tentative (CLAUDE.md); final size set in the pilot
+  filters: 128         # tentative (CLAUDE.md)
 
 mcts:
   simulations: null
