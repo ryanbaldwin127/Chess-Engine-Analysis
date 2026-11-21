@@ -2,7 +2,7 @@ import math
 import random
 import chess
 from node import Node
-from stockfish_interface import StockfishEvaluator
+from stockfishEvaluator import StockfishEvaluator
 
 class MCTS:
     def __init__(self, exploration_constant = 2, stockfish_nodes = 1000):
@@ -94,7 +94,7 @@ class MCTS:
             return 1
         elif result == "0-1":
             return -1
-        else 
+        else: 
             return 0
     
     def stockfish_simulation(self, node):
@@ -118,7 +118,6 @@ class MCTS:
             result = 1.0 - result
             node = node.parent
 
-if __name__ == "__main__":
     #Here we are running the full Monte Carlo Tree Search algorithm within this file's main:
     def search(self, board, iterations):
         self.create_a_node(board)

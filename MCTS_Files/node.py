@@ -40,7 +40,7 @@ class Node:
         if (parent.visits == 0):
             return 0.0
 
-        exploitation = self.mean_reward()
+        exploitation = 1.0 - self.mean_reward()
         exploration = c * math.sqrt(math.log(parent.visits) / self.visits)
 
         return exploitation + exploration
