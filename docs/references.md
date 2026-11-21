@@ -12,6 +12,7 @@ Add new sources here rather than in `decisions.md`, and point to them from decis
 
 **[AlphaZero]** D. Silver, T. Hubert, J. Schrittwieser, I. Antonoglou, M. Lai, A. Guez, M. Lanctot, L. Sifre, D. Kumaran, T. Graepel, T. Lillicrap, K. Simonyan, D. Hassabis. "A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play." *Science* 362(6419):1140–1144, 2018. https://doi.org/10.1126/science.aar6404
 - Our main implementation reference: the chess input planes, the 4,672-slot move encoding, the training setup and the search settings (Dirichlet α = 0.3, 25% noise weight). The supplementary materials include pseudocode.
+- The chess input is 119 planes: the current and 7 previous positions, plus rule planes (input-features table in the supplementary materials; checked by Ryan, Nov 20, 2026). We use only the current position plus rule planes; see CLAUDE.md.
 
 **[AlphaZero-arXiv]** D. Silver et al. "Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm." arXiv:1712.01815, 2017. https://arxiv.org/abs/1712.01815
 - The preprint of [AlphaZero]. The method reference cites this version. Cite [AlphaZero] in the write-up.
