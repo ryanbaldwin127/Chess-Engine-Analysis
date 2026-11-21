@@ -1,5 +1,23 @@
 # Chess-Engine-Analysis
 
+How much of a fixed compute budget should an AlphaZero-style chess engine spend
+learning from human games before switching to self-play? Five conditions spend
+0, 25, 50, 75 and 100% of the same budget on human games, then the rest on
+self-play.
+
+![How each condition splits the budget](docs/diagrams/conditions.png)
+
+## Documentation
+
+- [Decisions](docs/decisions.md): decisions made during implementation and why
+- [References](docs/references.md): papers, tools and data sources, with what each is used for
+- [Project proposal](docs/proposal.pdf)
+- [Method reference v1](docs/method-reference-v1.pdf): the full design, decisions and references
+- [System overview diagram](docs/diagrams/system-overview.png): data flow from Lichess games to training and evaluation
+- [Component dependencies diagram](docs/diagrams/component-dependencies.png): who owns each part and what it imports
+- [File structure](docs/file-structure.md): what each file in the repo is for
+- [CLAUDE.md](CLAUDE.md): project rules and conventions for Claude Code sessions
+
 ## Setup
 
 ```bash
@@ -23,11 +41,12 @@ The team's shared directory is `/s/bach/a/class/cs435/cs435a/chess-zero`:
 | `data/` | Source PGN files and other raw data |
 | `checkpoints/` | Model checkpoints |
 | `results/` | Match results, tables, and plots |
-| `engines/` | Stockfish and other engine binaries |
+| `engines/` | Engine binaries: Stockfish 19 is at `engines/stockfish-19/stockfish` |
 
 The directory is shared with the `cs435a` group and must keep `g+rwx`. A default
-ACL gives anything created inside it group access automatically. Files moved in
-with `mv` keep their old permissions, so use `cp`, or fix them afterwards:
+ACL gives new files created inside it group access automatically. Files brought
+in with `mv` or `cp` keep the permissions they had before, which may be private,
+so fix them afterwards:
 
 ```bash
 chmod -R g+rwX /s/bach/a/class/cs435/cs435a/chess-zero/<path>
