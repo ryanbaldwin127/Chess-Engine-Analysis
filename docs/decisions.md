@@ -173,10 +173,13 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 ## 13. Repetition-count input planes
 
 - **Date:** Nov 19, 2026
-- **Status:** Open. Revisit when writing `chesszero/encoding.py`.
+- **Status:** Decided Nov 24, 2026. Implemented in `chesszero/encoding.py` (planes 12–13). Needs a column from `pipeline/make_rows.py` (owner: Munisa).
 - **Question:** Add two input planes marking whether the current position has occurred once or twice before?
-- **Recommendation:** Adopt. We encode no move history, so the network can't tell that a move would allow a threefold-repetition draw, even though search and the game result both depend on it. Two constant planes are cheap. AlphaZero's chess input included repetition counts.
-- **Alternatives:** Full 8-position history as in AlphaZero (multiplies the input size; more than this project needs); no repetition information (the current design).
+- **Decision:** Adopt. Plane 12 is all 1s if the position occurred at least once before in the game, and plane 13 if at least twice.
+- **Why:** We encode no move history, so the network can't tell that a move would allow a threefold-repetition draw, even though search and the game result both depend on it. Two constant planes are cheap. AlphaZero's chess input included repetition counts.
+- **Supervised rows need a repetition column.** A board rebuilt from a FEN has no move history, so without the column these planes would always be 0 in the supervised phase but not in self-play, and conditions entering self-play would meet inputs they never trained on. `make_rows.py` replays each game anyway, so it adds `repetition_count` per row: the number of earlier occurrences of the position, keyed on the first four FEN fields (pieces, side to move, castling, en passant), which is the same key python-chess's `is_repetition` compares. `dataset.py` passes it to `board_to_planes(board, repetition_count=...)`. `tests/test_encoding.py::test_fen_rebuild_matches_live_board` checks that this reproduces the live board's encoding.
+- **Alternatives:** Full 8-position history as in AlphaZero (multiplies the input size; more than this project needs); no repetition information; keep the planes but accept that they're always 0 in supervised data.
+- **Related:** the en passant plane (19) is set only when an en passant capture is legal. python-chess sets `board.ep_square` after every double pawn push, but `board.fen()` writes it only when the capture is legal, so encoding the raw square would make a live board and its rebuilt FEN differ.
 
 ## 14. Squeeze-and-excitation residual blocks
 
