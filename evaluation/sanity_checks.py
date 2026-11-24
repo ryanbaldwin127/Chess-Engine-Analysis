@@ -18,7 +18,7 @@ from chesszero.game import play_game
 from chesszero.players import RandomPlayer, StockfishPlayer
 
 SHARED_RESULTS = "/s/bach/a/class/cs435/cs435a/chess-zero/results"
-LADDER_NODES = [1, 10, 100, 1000]
+LADDER_NODES = [1, 100, 1000, 10000]
 WHITE_SCORE = {"1-0": 1.0, "0-1": 0.0, "1/2-1/2": 0.5}
 
 
