@@ -11,6 +11,10 @@ The tower follows AlphaGo Zero's design [AlphaGoZero], built from residual
 blocks [ResNet]. The policy head is convolutional (see docs/decisions.md #22):
 it outputs the 73 AlphaZero move planes on the 8x8 board directly [AlphaZero].
 
+Loss: policy_value_loss (masked policy cross-entropy + value MSE), shared by the
+supervised and self-play learners. L2 regularization comes from the optimizer's
+weight_decay.
+
 Munisa owns ResidualBlock and ResidualTower. Until they're written, pass
 tower="stand_in" to get a plain convolution stack with the same input and
 output shapes, so everything else can be built and tested.
@@ -142,6 +146,57 @@ class ChessNet(nn.Module):
 
 def count_parameters(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+# ---------------------------------------------------------------------------
+# Loss
+# ---------------------------------------------------------------------------
+
+def masked_log_softmax(policy_logits: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Log-probabilities over the legal moves only; illegal slots get -inf.
+
+    Computed in float32 even if the network runs in bf16 (docs/decisions.md #12),
+    since the softmax over 4,672 slots is where low precision hurts most.
+    """
+    return F.log_softmax(policy_logits.float().masked_fill(~mask, float("-inf")), dim=1)
+
+
+def policy_value_loss(
+    policy_logits: torch.Tensor,
+    value: torch.Tensor,
+    policy_target: torch.Tensor,
+    value_target: torch.Tensor,
+    mask: torch.Tensor,
+    value_weight: float = 1.0,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """AlphaZero's loss without the L2 term: policy cross-entropy + value MSE.
+
+    policy_logits  (B, POLICY_SIZE)  raw network output
+    value          (B, 1) or (B,)    network output, side to move's view
+    policy_target  (B,) int64        the move played (supervised, one-hot), or
+                   (B, POLICY_SIZE)  a distribution over moves, e.g. normalized
+                                     MCTS visit counts (self-play)
+    value_target   (B,)              game result z, side to move's view
+    mask           (B, POLICY_SIZE)  bool, True at legal moves (legal_move_mask)
+
+    Returns (total, policy_loss, value_loss), each a scalar averaged over the
+    batch; log the parts with .item().
+
+    Illegal moves get probability exactly 0. For distribution targets, the masked
+    terms are zeroed before summing: target 0 times log-probability -inf would
+    otherwise be NaN, and F.cross_entropy does return NaN there. Target mass on
+    an illegal move is ignored, so targets must come from legal moves only; a
+    one-hot target on an illegal move gives an infinite loss.
+
+    L2 regularization is not added here: pass weight_decay to the optimizer.
+    """
+    log_probs = masked_log_softmax(policy_logits, mask)
+    if policy_target.dtype in (torch.int64, torch.int32):
+        policy_loss = -log_probs.gather(1, policy_target.long().unsqueeze(1)).mean()
+    else:
+        policy_loss = -(policy_target.float() * log_probs.masked_fill(~mask, 0.0)).sum(dim=1).mean()
+    value_loss = F.mse_loss(value.float().reshape(-1), value_target.float().reshape(-1))
+    return policy_loss + value_weight * value_loss, policy_loss, value_loss
 
 
 assert POLICY_SIZE == NUM_MOVE_PLANES * 64
