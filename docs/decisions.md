@@ -25,7 +25,7 @@ from [references.md](references.md).
 | 10 | [Drop positions played with under 30 seconds on the clock](#10-drop-positions-played-with-under-30-seconds-on-the-clock) | Decided |
 | 11 | [Which time controls go into the training rows](#11-which-time-controls-go-into-the-training-rows) | Open (after the pilot) |
 | 12 | [bf16 mixed precision on the GPU](#12-bf16-mixed-precision-on-the-gpu) | Open |
-| 13 | [Repetition-count input planes](#13-repetition-count-input-planes) | Open |
+| 13 | [Repetition-count input planes](#13-repetition-count-input-planes) | Decided |
 | 14 | [Squeeze-and-excitation residual blocks](#14-squeeze-and-excitation-residual-blocks) | Open |
 | 15 | [Training batch size](#15-training-batch-size) | Open |
 | 16 | [Screen design choices on a small network](#16-screen-design-choices-on-a-small-network) | Open |
@@ -35,6 +35,7 @@ from [references.md](references.md).
 | 20 | [Starting value for unvisited moves in search](#20-starting-value-for-unvisited-moves-in-search) | Open |
 | 21 | [Use Stockfish 19 from the official release for evaluation](#21-use-stockfish-19-from-the-official-release-for-evaluation) | Decided |
 | 22 | [Use a convolutional policy head](#22-use-a-convolutional-policy-head) | Decided |
+| 23 | [Supervised row format and how the dataset reads it](#23-supervised-row-format-and-how-the-dataset-reads-it) | Decided |
 
 ---
 
@@ -258,3 +259,13 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 - **Decision:** The policy head is conv3x3 → batch norm → ReLU → conv1x1 to 73 planes, flattened to 4,672 logits. There's no fully connected layer. The flattening order fixes the move index as `move_plane * 64 + square`, which `chesszero/encoding.py` documents and must follow.
 - **Why:** CLAUDE.md asked for a policy head that isn't squeezed to 2 channels before a 4,672-way fully connected layer (from Cam's project [CamUTTT]). But widening that version to 32 channels makes the fully connected layer 32 × 64 × 4,672 ≈ 9.6M weights, almost four times the 2.4M-parameter tower, so the head would dominate the network's size and cost. A convolutional head outputs AlphaZero's 73 move planes on the 8×8 board directly [AlphaZero], with about 157,000 weights, and keeps every square's moves tied to that square, as Leela's convolutional heads do [Lc0]. The whole network is about 2.56M parameters at 8 blocks × 128 filters.
 - **Alternatives:** AlphaGo Zero's 2-channel head with a fully connected layer [AlphaGoZero] (about 0.6M weights, but the bottleneck CLAUDE.md warns against); a 32-channel head with a fully connected layer (about 9.6M weights).
+
+## 23. Supervised row format and how the dataset reads it
+
+- **Date:** Nov 24, 2026
+- **Status:** Decided. Implemented in `chesszero/dataset.py`, which documents the format. `pipeline/make_rows.py` must write it; `tests/test_dataset.py::game_to_rows` is a reference for one game.
+- **Decision:** `make_rows.py` turns the filter's one-row-per-game output (`game_id, white_elo, black_elo, result, time_control, pgn`) into one row per position: `game_id, ply, fen, uci, z, repetition_count, white_elo, black_elo`. `fen` is the position before the move and `uci` the move played. `z` is the game result from the **side to move's** view (+1 win, 0 draw, -1 loss), so it flips sign every ply in a decisive game; the dataset passes it through unchanged. Train and validation go to separate directories of Parquet shards on the shared folder (#5, #7).
+- **Reading:** a streaming `IterableDataset`, not an in-memory one. Each pass reads every row once: shards are shuffled by (seed, epoch) and dealt round-robin to DataLoader workers, and rows go through a shuffle buffer (Spark has already shuffled globally). FEN parsing, planes and the legal-move mask are computed at load time (about 200 µs per sample on one core, mostly python-chess parsing the FEN and generating legal moves), so a learner likely needs several DataLoader workers; measure in the pilot.
+- **Resuming:** after a restart the learner starts a new pass with a new epoch number rather than skipping into the interrupted one. Some positions from the interrupted pass are seen again and others not at all, which only matters if the supervised phase is short relative to the data. The budget is unaffected, because it counts samples actually trained on (#1).
+- **Why:** storing z from the side to move's view matches the value target (CLAUDE.md) and leaves no sign flip in the reader, where a missed flip for Black would silently train the value head on the wrong sign. At hundreds of millions of rows the data doesn't fit in memory, so it has to stream. Exact mid-pass resume with several workers and a shuffle buffer is fiddly and the gain is small.
+- **Alternatives:** store the result from White's view and flip it in `dataset.py`; pre-encode planes and masks in Spark (removes the CPU cost but makes shards far larger, since a mask is 4,672 values per row; the fallback if the loader can't keep up); exact mid-pass resume by tracking each worker's position.
