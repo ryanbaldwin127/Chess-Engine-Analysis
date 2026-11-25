@@ -36,6 +36,7 @@ from [references.md](references.md).
 | 21 | [Use Stockfish 19 from the official release for evaluation](#21-use-stockfish-19-from-the-official-release-for-evaluation) | Decided |
 | 22 | [Use a convolutional policy head](#22-use-a-convolutional-policy-head) | Decided |
 | 23 | [Supervised row format and how the dataset reads it](#23-supervised-row-format-and-how-the-dataset-reads-it) | Decided |
+| 24 | [Branch the conditions from one supervised run](#24-branch-the-conditions-from-one-supervised-run) | Open |
 
 ---
 
@@ -269,3 +270,24 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 - **Resuming:** after a restart the learner starts a new pass with a new epoch number rather than skipping into the interrupted one. Some positions from the interrupted pass are seen again and others not at all, which only matters if the supervised phase is short relative to the data. The budget is unaffected, because it counts samples actually trained on (#1).
 - **Why:** storing z from the side to move's view matches the value target (CLAUDE.md) and leaves no sign flip in the reader, where a missed flip for Black would silently train the value head on the wrong sign. At hundreds of millions of rows the data doesn't fit in memory, so it has to stream. Exact mid-pass resume with several workers and a shuffle buffer is fiddly and the gain is small.
 - **Alternatives:** store the result from White's view and flip it in `dataset.py`; pre-encode planes and masks in Spark (removes the CPU cost but makes shards far larger, since a mask is 4,672 values per row; the fallback if the loader can't keep up); exact mid-pass resume by tracking each worker's position.
+
+## 24. Branch the conditions from one supervised run
+
+- **Date:** Nov 24, 2026
+- **Status:** Open. Proposed; settle before the pilot's training runs, since it shapes `training/run_condition.py` and the learning-rate schedule (#19).
+- **Question:** Train five separate runs, or one supervised run ("trunk") from 0 to B whose checkpoints at 0.25·B, 0.5·B and 0.75·B each continue as that condition's self-play phase?
+- **Recommendation:** Branch. The trunk at B is the 100% condition; the 0% condition is self-play from random weights, as before.
+- **Why it's equivalent to separate runs:** a separate 25% run with the same seed, data order and settings would be identical to the trunk up to 0.25·B, because nothing in it knows yet where it will stop. Branching skips recomputing that shared work rather than removing randomness the separate runs would have. This holds only if nothing in supervised training depends on p:
+  - the learning-rate schedule is a function of n_eval / B, the same for every condition (#19's recommendation); a schedule that decays to the end of each run's own supervised phase would break the equivalence;
+  - every condition reads the same rows in the same order (same dataset seed, #23);
+  - no early stopping or other per-run choices.
+- **Advantages:**
+  - Supervised compute totals 1.0·B instead of 2.5·B (0 + 0.25 + 0.5 + 0.75 + 1).
+  - Less noise in the comparison: conditions share the same supervised start, so differences between them come from the switch point, not from one run getting a luckier start (a paired design).
+  - Elo-vs-compute curves coincide below each branch point, because the models really are the same there; the trunk's checkpoints serve every condition.
+- **Disadvantages:**
+  - The wall-time saving is modest: self-play dominates (CLAUDE.md, Planning the budget) and still totals 2.5·B; only the supervised term shrinks, from 2.5·B / (3·R_sup) to 1.0·B / (3·R_sup). The pilot's R_sup and R_sp give the actual hours.
+  - One trunk is one draw of luck that every condition from 25% up inherits. With one run per condition we couldn't measure seed variance either way; a second trunk with another seed, if time allows, would.
+  - The 75% branch can't start until the trunk reaches 0.75·B. Supervised training is fast relative to self-play, so the 0% and 25% branches would already be running.
+- **Bookkeeping if adopted:** each branch starts from the trunk's full checkpoint (weights and optimizer state) and keeps its n_eval, so its count starts at p·B, not 0; checkpoint metadata records the branch point. The write-up states the branching and this equivalence argument, so readers don't take the conditions as independent replicates.
+- **Alternatives:** five independent runs with the same seed (equivalent results, 1.5·B more supervised compute); five independent runs with different seeds (independent noise per condition, but with one run each it can't be separated from the effect of p).
