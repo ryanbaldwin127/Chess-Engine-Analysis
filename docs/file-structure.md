@@ -13,7 +13,7 @@ chess-zero/
 │   ├── players.py          # Player interface + Random, Stockfish, MCTS players
 │   ├── game.py             # play two players, draw rules, move cap, save PGN
 │   ├── dataset.py          # PyTorch Dataset streaming Parquet shards from the shared folder
-│   ├── budget.py           # network-evaluation counter
+│   ├── budget.py           # network-evaluation counter, phase switch, checkpoint timing
 │   └── storage.py          # HDFS helpers: atomic write/rename, save/load checkpoints
 │
 ├── pipeline/               # Spark jobs
@@ -46,5 +46,6 @@ chess-zero/
 └── tests/
     ├── test_encoding.py    # input planes; round-trip every legal move; mask support
     ├── test_dataset.py     # every row once per pass; rows encode like the live game
+    ├── test_budget.py      # phases in order, aligned checkpoints, exact resume and branching
     ├── test_mcts.py        # finds mate-in-1/2 with the stand-in network
     └── test_game.py

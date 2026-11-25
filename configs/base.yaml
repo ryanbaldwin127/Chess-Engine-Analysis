@@ -7,7 +7,9 @@ mcts:
   simulations: null
 
 budget:
-  network_evaluations: null  # set from experiments/pilot.py
+  network_evaluations: null  # B, set from experiments/pilot.py
+  checkpoint_every: null     # evaluations between checkpoints; B must be a multiple of 4x this (e.g. B/100)
+  train_samples_per_position: null  # self-play: samples trained per position ingested (docs/decisions.md #25)
 
 paths:
   hdfs_root: null
