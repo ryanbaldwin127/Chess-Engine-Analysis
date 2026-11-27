@@ -106,7 +106,7 @@ One learner per condition trains the network. Everything else produces data for 
    - Base time control ≥ 300 s; drop `TimeControl` "-".
    - Both players rated ≥ 1000 (Lichess).
    - The code on `chunk-pgn` currently differs (rating ≥ 1200, base time > 300 s, keeps abandoned games). Settle it and record the result in `docs/decisions.md`.
-3. `pipeline/make_rows.py` expands each game to one row per position.
+3. `pipeline/make_rows.py` expands each game to one row per position (Spark; settings in the `data:` section of `configs/base.yaml`). It also splits train/val (step 4), shuffles (step 5), and writes `stats.json` with the counts. Run: `spark-submit pipeline/make_rows.py file://<filtered> file://<output_dir>`. On a 30-chunk sample (with the finished filter: Normal only, base ≥ 300 s, ratings ≥ 1000) it produced about 65 rows per game and about 50 bytes per row, so the full month should be roughly 800M rows and 41 GB, plus about 20 GB of filtered games. On our standalone Spark clusters (11 one-core, 2 GB workers) expect roughly 4–5 hours; pass `--executor-memory 2g` and `--conf spark.executorEnv.PYTHONPATH=$PYTHONPATH` so workers find python-chess.
    - Skip positions where the player to move had under 30 seconds left (from the `[%clk ...]` comments). The value target stays the game result. See `docs/decisions.md` #10.
    - Which time controls to include is decided after the pilot; default to base ≥ 600 s. See `docs/decisions.md` #11.
 4. **Split train/val by hash of game ID (90/10), never by position.** Verify zero shared IDs.

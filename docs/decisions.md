@@ -141,7 +141,8 @@ from [references.md](references.md).
 ## 10. Drop positions played with under 30 seconds on the clock
 
 - **Date:** Nov 19, 2026
-- **Status:** Decided. The 30-second cutoff is tentative. Implemented in `pipeline/make_rows.py` (owner: Munisa).
+- **Status:** Decided. The 30-second cutoff is tentative (`data.min_clock_seconds`). Implemented in `pipeline/make_rows.py` (owner: Ryan, taken over from Munisa).
+- **Implementation:** the player to move's clock is the time they had left after their previous move (Lichess's `[%clk]` comment, which includes the increment), or the base time for each side's first move. On a sample of two chunks (20,584 games after the filter and the 10-minute default), the rule removed 10,091 of about 1.36M positions, about 0.7%.
 - **Decision:** When expanding games into training rows, skip any position where the player to move had less than 30 seconds left. The clock comes from the `[%clk h:mm:ss]` comment Lichess records after each move. The rest of the game is still used, and the value target for kept positions is still the final result.
 - **Why:** Most of the quality loss in faster games happens in time scrambles, where players make rushed moves and blunders. Dropping those positions removes the worst moves from every time control, including 10-minute games, without throwing away whole games. It also lets us keep 5-minute games if we need the volume (see #11).
 - **Alternatives:** Dropping whole fast games (loses the good early and middle-game moves too); no clock filter (keeps time-scramble blunders as policy targets).
@@ -153,7 +154,7 @@ from [references.md](references.md).
 ## 11. Which time controls go into the training rows
 
 - **Date:** Nov 19, 2026
-- **Status:** Open until the pilot sets the budget B.
+- **Status:** Open until the pilot sets the budget B. The default is implemented as `data.rows_min_base_seconds: 600` in `configs/base.yaml`, applied in `pipeline/make_rows.py`.
 - **Question:** Should the supervised training rows include 5-minute games (300+0, 300+3), or only games with a base of 10 minutes or more?
 - **Considerations:**
   - **For leaving 5-minute games out:** players have less time to find good moves, more games are decided by late blunders, and the value target z is noisier. Games of 10 minutes or more still give about 10M games, or roughly 650M positions at a median of about 60 plies.
