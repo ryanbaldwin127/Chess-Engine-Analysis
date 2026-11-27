@@ -55,7 +55,7 @@ These definitions are what make the five conditions comparable. They can change 
 
 ## Architecture
 
-One learner per condition trains the network. Everything else produces data for it or reads its checkpoints. All hand-offs are files.
+One learner per condition trains the network. Everything else produces data for it or reads its checkpoints. All hand-offs are files. `docs/distributed-system.md` describes the protocol, its guarantees (atomic files, exactly-once ingest, a fixed train-to-data ratio) and what to measure; follow it when writing `selfplay_worker.py` and `train_selfplay.py`.
 
 - **Human rows:** built by Spark on our own clusters' HDFS (Parquet: game ID, ply, FEN, UCI move, z, both ratings). Each person's cluster is private to them, and HDFS is **not** reachable from the fish machines. Finished outputs go to the shared folder, which is the only place the whole team and the fish machines can all read.
 - **Shared folder:** `/s/bach/a/class/cs435/cs435a/chess-zero` (department network drive, seen by every lab machine, group `cs435a`). It currently has:

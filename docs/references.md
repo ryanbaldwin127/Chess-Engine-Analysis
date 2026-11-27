@@ -79,6 +79,17 @@ Add new sources here rather than in `decisions.md`, and point to them from decis
 **[CamUTTT]** Cam's notes from his Ultimate Tic-Tac-Toe AlphaZero project, which trained on the same fish machines. Private, not published.
 - The source of decisions #12–#20, the launch script design and the engineering gotchas in CLAUDE.md. Acknowledge it in the write-up rather than citing it.
 
+## Distributed training systems
+
+**[ApeX]** D. Horgan, J. Quan, D. Budden, G. Barth-Maron, M. Hessel, H. van Hasselt, D. Silver. "Distributed Prioritized Experience Replay." *ICLR*, 2018. arXiv:1803.00933. https://arxiv.org/abs/1803.00933
+- The closest published design to ours: many actors write experience into one shared replay memory, a single learner trains from it, and the actors periodically pull the learner's latest parameters. See `docs/distributed-system.md`.
+
+**[IMPALA]** L. Espeholt, H. Soyer, R. Munos, K. Simonyan, et al. "IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures." arXiv:1802.01561, 2018. https://arxiv.org/abs/1802.01561 **Venue unverified** (likely ICML 2018; check before citing).
+- Decoupled actors and learner. Its off-policy correction (V-trace) addresses the same lag between the actors' policy and the learner's that we measure as staleness; we don't correct for it, as AlphaZero didn't.
+
+**[ParamServer]** M. Li et al. "Scaling Distributed Machine Learning with the Parameter Server." *OSDI*, 2014. https://pdos.csail.mit.edu/6.824/papers/parameter.pdf
+- Relaxed consistency models for distributed machine learning, including bounded delay, where reads may lag writes by a bounded amount. The framing for our staleness measurements. **Quote section 4 for the exact definition** before citing it.
+
 ## Data, tools and reference code
 
 **[Lichess]** Lichess open database. https://database.lichess.org/ (proposal [2])
