@@ -25,7 +25,7 @@ from [references.md](references.md).
 | 10 | [Drop positions played with under 30 seconds on the clock](#10-drop-positions-played-with-under-30-seconds-on-the-clock) | Decided |
 | 11 | [Which time controls go into the training rows](#11-which-time-controls-go-into-the-training-rows) | Open (after the pilot) |
 | 12 | [bf16 mixed precision on the GPU](#12-bf16-mixed-precision-on-the-gpu) | Open |
-| 13 | [Repetition-count input planes](#13-repetition-count-input-planes) | Open |
+| 13 | [Repetition-count input planes](#13-repetition-count-input-planes) | Decided |
 | 14 | [Squeeze-and-excitation residual blocks](#14-squeeze-and-excitation-residual-blocks) | Open |
 | 15 | [Training batch size](#15-training-batch-size) | Open |
 | 16 | [Screen design choices on a small network](#16-screen-design-choices-on-a-small-network) | Open |
@@ -35,6 +35,8 @@ from [references.md](references.md).
 | 20 | [Starting value for unvisited moves in search](#20-starting-value-for-unvisited-moves-in-search) | Open |
 | 21 | [Use Stockfish 19 from the official release for evaluation](#21-use-stockfish-19-from-the-official-release-for-evaluation) | Decided |
 | 22 | [Use a convolutional policy head](#22-use-a-convolutional-policy-head) | Decided |
+| 23 | [Supervised row format and how the dataset reads it](#23-supervised-row-format-and-how-the-dataset-reads-it) | Decided |
+| 24 | [Branch the conditions from one supervised run](#24-branch-the-conditions-from-one-supervised-run) | Open |
 
 ---
 
@@ -173,10 +175,13 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 ## 13. Repetition-count input planes
 
 - **Date:** Nov 19, 2026
-- **Status:** Open. Revisit when writing `chesszero/encoding.py`.
+- **Status:** Decided Nov 24, 2026. Implemented in `chesszero/encoding.py` (planes 12–13). Needs a column from `pipeline/make_rows.py` (owner: Munisa).
 - **Question:** Add two input planes marking whether the current position has occurred once or twice before?
-- **Recommendation:** Adopt. We encode no move history, so the network can't tell that a move would allow a threefold-repetition draw, even though search and the game result both depend on it. Two constant planes are cheap. AlphaZero's chess input included repetition counts.
-- **Alternatives:** Full 8-position history as in AlphaZero (multiplies the input size; more than this project needs); no repetition information (the current design).
+- **Decision:** Adopt. Plane 12 is all 1s if the position occurred at least once before in the game, and plane 13 if at least twice.
+- **Why:** We encode no move history, so the network can't tell that a move would allow a threefold-repetition draw, even though search and the game result both depend on it. Two constant planes are cheap. AlphaZero's chess input included repetition counts.
+- **Supervised rows need a repetition column.** A board rebuilt from a FEN has no move history, so without the column these planes would always be 0 in the supervised phase but not in self-play, and conditions entering self-play would meet inputs they never trained on. `make_rows.py` replays each game anyway, so it adds `repetition_count` per row: the number of earlier occurrences of the position, keyed on the first four FEN fields (pieces, side to move, castling, en passant), which is the same key python-chess's `is_repetition` compares. `dataset.py` passes it to `board_to_planes(board, repetition_count=...)`. `tests/test_encoding.py::test_fen_rebuild_matches_live_board` checks that this reproduces the live board's encoding.
+- **Alternatives:** Full 8-position history as in AlphaZero (multiplies the input size; more than this project needs); no repetition information; keep the planes but accept that they're always 0 in supervised data.
+- **Related:** the en passant plane (19) is set only when an en passant capture is legal. python-chess sets `board.ep_square` after every double pawn push, but `board.fen()` writes it only when the capture is legal, so encoding the raw square would make a live board and its rebuilt FEN differ.
 
 ## 14. Squeeze-and-excitation residual blocks
 
@@ -255,3 +260,34 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
 - **Decision:** The policy head is conv3x3 → batch norm → ReLU → conv1x1 to 73 planes, flattened to 4,672 logits. There's no fully connected layer. The flattening order fixes the move index as `move_plane * 64 + square`, which `chesszero/encoding.py` documents and must follow.
 - **Why:** CLAUDE.md asked for a policy head that isn't squeezed to 2 channels before a 4,672-way fully connected layer (from Cam's project [CamUTTT]). But widening that version to 32 channels makes the fully connected layer 32 × 64 × 4,672 ≈ 9.6M weights, almost four times the 2.4M-parameter tower, so the head would dominate the network's size and cost. A convolutional head outputs AlphaZero's 73 move planes on the 8×8 board directly [AlphaZero], with about 157,000 weights, and keeps every square's moves tied to that square, as Leela's convolutional heads do [Lc0]. The whole network is about 2.56M parameters at 8 blocks × 128 filters.
 - **Alternatives:** AlphaGo Zero's 2-channel head with a fully connected layer [AlphaGoZero] (about 0.6M weights, but the bottleneck CLAUDE.md warns against); a 32-channel head with a fully connected layer (about 9.6M weights).
+
+## 23. Supervised row format and how the dataset reads it
+
+- **Date:** Nov 24, 2026
+- **Status:** Decided. Implemented in `chesszero/dataset.py`, which documents the format. `pipeline/make_rows.py` must write it; `tests/test_dataset.py::game_to_rows` is a reference for one game.
+- **Decision:** `make_rows.py` turns the filter's one-row-per-game output (`game_id, white_elo, black_elo, result, time_control, pgn`) into one row per position: `game_id, ply, fen, uci, z, repetition_count, white_elo, black_elo`. `fen` is the position before the move and `uci` the move played. `z` is the game result from the **side to move's** view (+1 win, 0 draw, -1 loss), so it flips sign every ply in a decisive game; the dataset passes it through unchanged. Train and validation go to separate directories of Parquet shards on the shared folder (#5, #7).
+- **Reading:** a streaming `IterableDataset`, not an in-memory one. Each pass reads every row once: shards are shuffled by (seed, epoch) and dealt round-robin to DataLoader workers, and rows go through a shuffle buffer (Spark has already shuffled globally). FEN parsing, planes and the legal-move mask are computed at load time (about 200 µs per sample on one core, mostly python-chess parsing the FEN and generating legal moves), so a learner likely needs several DataLoader workers; measure in the pilot.
+- **Resuming:** after a restart the learner starts a new pass with a new epoch number rather than skipping into the interrupted one. Some positions from the interrupted pass are seen again and others not at all, which only matters if the supervised phase is short relative to the data. The budget is unaffected, because it counts samples actually trained on (#1).
+- **Why:** storing z from the side to move's view matches the value target (CLAUDE.md) and leaves no sign flip in the reader, where a missed flip for Black would silently train the value head on the wrong sign. At hundreds of millions of rows the data doesn't fit in memory, so it has to stream. Exact mid-pass resume with several workers and a shuffle buffer is fiddly and the gain is small.
+- **Alternatives:** store the result from White's view and flip it in `dataset.py`; pre-encode planes and masks in Spark (removes the CPU cost but makes shards far larger, since a mask is 4,672 values per row; the fallback if the loader can't keep up); exact mid-pass resume by tracking each worker's position.
+
+## 24. Branch the conditions from one supervised run
+
+- **Date:** Nov 24, 2026
+- **Status:** Open. Proposed; settle before the pilot's training runs, since it shapes `training/run_condition.py` and the learning-rate schedule (#19).
+- **Question:** Train five separate runs, or one supervised run ("trunk") from 0 to B whose checkpoints at 0.25·B, 0.5·B and 0.75·B each continue as that condition's self-play phase?
+- **Recommendation:** Branch. The trunk at B is the 100% condition; the 0% condition is self-play from random weights, as before.
+- **Why it's equivalent to separate runs:** a separate 25% run with the same seed, data order and settings would be identical to the trunk up to 0.25·B, because nothing in it knows yet where it will stop. Branching skips recomputing that shared work rather than removing randomness the separate runs would have. This holds only if nothing in supervised training depends on p:
+  - the learning-rate schedule is a function of n_eval / B, the same for every condition (#19's recommendation); a schedule that decays to the end of each run's own supervised phase would break the equivalence;
+  - every condition reads the same rows in the same order (same dataset seed, #23);
+  - no early stopping or other per-run choices.
+- **Advantages:**
+  - Supervised compute totals 1.0·B instead of 2.5·B (0 + 0.25 + 0.5 + 0.75 + 1).
+  - Less noise in the comparison: conditions share the same supervised start, so differences between them come from the switch point, not from one run getting a luckier start (a paired design).
+  - Elo-vs-compute curves coincide below each branch point, because the models really are the same there; the trunk's checkpoints serve every condition.
+- **Disadvantages:**
+  - The wall-time saving is modest: self-play dominates (CLAUDE.md, Planning the budget) and still totals 2.5·B; only the supervised term shrinks, from 2.5·B / (3·R_sup) to 1.0·B / (3·R_sup). The pilot's R_sup and R_sp give the actual hours.
+  - One trunk is one draw of luck that every condition from 25% up inherits. With one run per condition we couldn't measure seed variance either way; a second trunk with another seed, if time allows, would.
+  - The 75% branch can't start until the trunk reaches 0.75·B. Supervised training is fast relative to self-play, so the 0% and 25% branches would already be running.
+- **Bookkeeping if adopted:** each branch starts from the trunk's full checkpoint (weights and optimizer state) and keeps its n_eval, so its count starts at p·B, not 0; checkpoint metadata records the branch point. The write-up states the branching and this equivalence argument, so readers don't take the conditions as independent replicates.
+- **Alternatives:** five independent runs with the same seed (equivalent results, 1.5·B more supervised compute); five independent runs with different seeds (independent noise per condition, but with one run each it can't be separated from the effect of p).
