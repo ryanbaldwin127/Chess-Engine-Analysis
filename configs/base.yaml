@@ -11,6 +11,17 @@ budget:
   checkpoint_every: null     # evaluations between checkpoints; B must be a multiple of 4x this (e.g. B/100)
   train_samples_per_position: null  # self-play: samples trained per position ingested (docs/decisions.md #25)
 
+data:
+  # pipeline/filter_games.py: which games are kept (docs/decisions.md #9)
+  filter_min_base_seconds: 300  # base time of at least 5 minutes; 5-minute games kept (#9, #11)
+  filter_min_rating: 1000       # both players
+  # pipeline/make_rows.py: filtered games -> one row per position (docs/decisions.md #5, #10, #11, #23)
+  rows_min_base_seconds: 600   # time controls kept for training rows; default 10+ min, revisit after the pilot (#11)
+  min_clock_seconds: 30        # skip positions where the player to move had less than this left (#10)
+  val_fraction: 0.1            # share of games in validation, split by a hash of the game ID (#5)
+  shards: 400                  # Parquet files per split (val files are ~10x smaller); each mixes thousands of games
+  seed: 0                      # row shuffle
+
 paths:
   hdfs_root: null
   shared_disk: /s/bach/a/class/cs435/cs435a/chess-zero
