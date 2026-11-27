@@ -37,6 +37,7 @@ from [references.md](references.md).
 | 22 | [Use a convolutional policy head](#22-use-a-convolutional-policy-head) | Decided |
 | 23 | [Supervised row format and how the dataset reads it](#23-supervised-row-format-and-how-the-dataset-reads-it) | Decided |
 | 24 | [Branch the conditions from one supervised run](#24-branch-the-conditions-from-one-supervised-run) | Open |
+| 25 | [Count self-play evaluations when the learner ingests them](#25-count-self-play-evaluations-when-the-learner-ingests-them) | Decided (ratio value open) |
 
 ---
 
@@ -291,3 +292,29 @@ Entries 12–20 come from reviewing Cam's notes on his Ultimate Tic-Tac-Toe Alph
   - The 75% branch can't start until the trunk reaches 0.75·B. Supervised training is fast relative to self-play, so the 0% and 25% branches would already be running.
 - **Bookkeeping if adopted:** each branch starts from the trunk's full checkpoint (weights and optimizer state) and keeps its n_eval, so its count starts at p·B, not 0; checkpoint metadata records the branch point. The write-up states the branching and this equivalence argument, so readers don't take the conditions as independent replicates.
 - **Alternatives:** five independent runs with the same seed (equivalent results, 1.5·B more supervised compute); five independent runs with different seeds (independent noise per condition, but with one run each it can't be separated from the effect of p).
+
+## 25. Count self-play evaluations when the learner ingests them
+
+- **Date:** Nov 24, 2026
+- **Status:** Decided. Implemented in `chesszero/budget.py`. The value of `budget.train_samples_per_position` is open until the pilot.
+- **Decision:**
+  - **Counting at ingest:** self-play evaluations count toward B when the learner ingests a game file, not when a worker generates it. Each game file reports the evaluations used to produce it (positions actually sent through the network; cache hits, terminal positions and batch padding are free).
+  - **Discarded work:** games that never reach the learner (a worker killed mid-batch, files arriving after the run hits B) are recorded as discarded evaluations and games, reported separately, and not counted in n_eval.
+  - **Outside B:** validation passes and evaluation matches don't change the model, so they aren't counted.
+  - **Phase guard:** self-play games ingested during the supervised phase raise an error rather than being counted, because phases run in order (#1).
+  - **Fixed train-to-data ratio:** in self-play, the learner trains on at most `train_samples_per_position` samples per position ingested, and waits for data when it's ahead. The value is the same in every condition.
+  - **Checkpoint intervals:** checkpoints fall at multiples of `budget.checkpoint_every`, the same n_eval values in every condition. B must be a multiple of 4 × `checkpoint_every`, so every switch point (0, 0.25, 0.5, 0.75, 1 × B) is a checkpoint, which branching (#24) needs.
+- **Why:**
+  - Only the learner keeps state, so counting there keeps the count in one process, and it counts exactly the data that affected the model. The learner's checkpoint must also record which game files it has ingested, so a restart doesn't count a file twice (exactly-once ingest); that belongs in `training/train_selfplay.py`.
+  - Without a fixed ratio, the samples trained per fresh position would depend on how many fish machines happened to be free, so conditions run on different numbers of machines would learn differently for reasons unrelated to p.
+- **Game file metadata:** besides the games themselves, each self-play file records:
+  - the worker's host,
+  - the weights version it played with,
+  - evaluations used, games and plies,
+  - start and end times.
+
+  The learner logs when it ingested each file and the weights version current then. That gives the staleness distribution (how many weight versions behind the data was), ingest lag, and discarded work, which are the measurements that describe the self-play system as a distributed system (asynchronous actors and learner, bounded staleness, exactly-once ingest, backpressure).
+- **Alternatives:**
+  - Counting at generation, which would need workers to report counts separately and would count work that never affected the model.
+  - A synchronous design where all workers play one generation with the same weights and wait at a barrier (AlphaGo Zero-style): no staleness or discarded work, but machines sit idle waiting for the slowest.
+  - Letting the learner train as fast as it can.
