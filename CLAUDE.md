@@ -19,7 +19,7 @@ We train AlphaZero-style chess models (small ResNet + MCTS) and test **how much 
 | Budget counter | `chesszero/budget.py` | Ryan |
 | Parquet dataset | `chesszero/dataset.py` | Ryan, Munisa |
 | Shared-folder file helpers | `chesszero/storage.py` | Unassigned |
-| Data pipeline | `pipeline/chunk_pgn.py`, `filter_games.py`, `make_rows.py` | Munisa |
+| Data pipeline | `pipeline/chunk_pgn.py`, `filter_games.py`, `make_rows.py` | Munisa (chunking, first filter); Ryan (finished filter, `make_rows.py`) |
 | Opening book | `pipeline/opening_book.py` | Kylie |
 | Training and phase switch | `training/train_supervised.py`, `selfplay_worker.py`, `train_selfplay.py`, `run_condition.py` | Ryan (supervised with Munisa) |
 | Launch scripts | `training/launch_workers.sh`, `training/scan_gpus.sh` | Unassigned (based on scripts from Cam, a friend outside the team) |
@@ -30,11 +30,10 @@ We train AlphaZero-style chess models (small ResNet + MCTS) and test **how much 
 
 `configs/base.yaml` holds the shared settings and `configs/condition_<p>.yaml` overrides them per condition. Values that are still `null` are not decided yet.
 
-## Current status (Nov 19, 2026)
+## Current status (Nov 27, 2026)
 
-- **On `main`:** stub files only (module docstrings), plus README, configs, `requirements.txt`, `training/scan_gpus.sh` and `docs/`.
-- **Branch `chunk-pgn` (Munisa, not merged):** `pipeline/chunk_pgn.py` and `pipeline/filter_games.py` are written.
-- **Data on the shared folder:** the October 2026 Lichess month (checksum verified) is split into 954 chunks of 100,000 games each (about 95.4M games) in `data/chunks_2026-10/`. The filter has **not** been run on it yet. Its rules don't match the spec below; see `docs/decisions.md`.
+- **Data pipeline: done for October 2026.** `pipeline/run_month.sh` ran `filter_games.py` and `make_rows.py` on Ryan's Spark cluster. `data/filtered_2026-10/`: 24.95M games (26.2% of 95.4M), 20 GB. `data/rows_2026-10/{train,val}`: 816.7M rows from 12.6M games with a base of 10+ minutes (train 735.1M, val 81.6M, no game in both), 400 shards each, 40 GB. Counts are in each folder's `_stats.json` / `stats.json` and `docs/decisions.md` #9–#11.
+- **Data on the shared folder:** the October 2026 Lichess month (checksum verified) is split into 954 chunks of 100,000 games each (about 95.4M games) in `data/chunks_2026-10/`.
 - **MCTS:** Josh has an implementation that isn't pushed yet.
 - Everything else is still to build. The **chess core** (`encoding.py`, `players.py`, `game.py`) comes first because everything imports it.
 
@@ -105,8 +104,8 @@ One learner per condition trains the network. Everything else produces data for 
    - `Termination` = Normal (drops time forfeits, abandoned games, rules infractions and unterminated games).
    - Base time control ≥ 300 s; drop `TimeControl` "-".
    - Both players rated ≥ 1000 (Lichess).
-   - The code on `chunk-pgn` currently differs (rating ≥ 1200, base time > 300 s, keeps abandoned games). Settle it and record the result in `docs/decisions.md`.
-3. `pipeline/make_rows.py` expands each game to one row per position (Spark; settings in the `data:` section of `configs/base.yaml`). It also splits train/val (step 4), shuffles (step 5), and writes `stats.json` with the counts. Run: `spark-submit pipeline/make_rows.py file://<filtered> file://<output_dir>`. On a 30-chunk sample (with the finished filter: Normal only, base ≥ 300 s, ratings ≥ 1000) it produced about 65 rows per game and about 50 bytes per row, so the full month should be roughly 800M rows and 41 GB, plus about 20 GB of filtered games. On our standalone Spark clusters (11 one-core, 2 GB workers) expect roughly 4–5 hours; pass `--executor-memory 2g` and `--conf spark.executorEnv.PYTHONPATH=$PYTHONPATH` so workers find python-chess.
+   - Thresholds live in `configs/base.yaml` (`data.filter_*`); decided in `docs/decisions.md` #9. It writes `_stats.json` (leading underscore so Spark skips it when reading the folder as Parquet). On 30 chunks it kept 25.9% of games, about 24.7M for the month.
+3. `pipeline/make_rows.py` expands each game to one row per position (Spark; settings in the `data:` section of `configs/base.yaml`). It also splits train/val (step 4), shuffles (step 5), and writes `stats.json` with the counts. Run: `spark-submit pipeline/make_rows.py file://<filtered> file://<output_dir>`. On a 30-chunk sample (with the finished filter: Normal only, base ≥ 300 s, ratings ≥ 1000) it produced about 65 rows per game and about 50 bytes per row, and the full month came to 816.7M rows and 40 GB, plus 20 GB of filtered games. On a standalone Spark cluster of 10 one-core, 2 GB workers the filter took 5 minutes and make_rows about 2 hours. Use `bash pipeline/run_month.sh filter|rows|all` on the Spark master inside tmux; it sets `--executor-memory 2g`, the workers' PYTHONPATH (for python-chess) and a group-writable umask.
    - Skip positions where the player to move had under 30 seconds left (from the `[%clk ...]` comments). The value target stays the game result. See `docs/decisions.md` #10.
    - Which time controls to include is decided after the pilot; default to base ≥ 600 s. See `docs/decisions.md` #11.
 4. **Split train/val by hash of game ID (90/10), never by position.** Verify zero shared IDs.

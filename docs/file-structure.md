@@ -41,7 +41,15 @@ chess-zero/
 │   └── scaling_test.py     # 1, 2, 5, 10 machines
 │
 ├── analysis/
-│   └── plots.py            # Elo vs compute, training curves, scaling curves
+│   ├── plots.py            # Elo vs compute, training curves, scaling curves
+│   ├── data_stats.py       # summarize the human-game data into results/data_stats_<month>.json
+│   └── pipeline_figures.ipynb  # data-pipeline figures and counts table -> figures/pipeline/
+│
+├── results/
+│   └── data_stats_2026-10.json  # small summary the pipeline figures read
+│
+├── figures/                # figures for the write-up, one folder per section
+│   └── pipeline/           # PDF + PNG, and pipeline_counts.tex
 │
 └── tests/
     ├── test_encoding.py    # input planes; round-trip every legal move; mask support
