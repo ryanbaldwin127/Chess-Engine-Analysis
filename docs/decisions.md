@@ -110,6 +110,7 @@ from [references.md](references.md).
 - **Date:** Nov 19, 2026
 - **Status:** Decided, Nov 27, 2026: the proposal below, as written. Implemented in `pipeline/filter_games.py` (written by Munisa, finished by Ryan) with the thresholds in `configs/base.yaml` (`data.filter_min_base_seconds: 300`, `data.filter_min_rating: 1000`).
 - **Measured with the final rules** on 30 chunks (3M games): 25.9% kept. Dropped by first failed rule: BOT 0.5%, termination not Normal 32.3%, base under 5 minutes 37.9%, rating under 1000 3.4%. About 24.7M games for the month.
+- **Full month (Nov 27, 2026, 4.9 min on Ryan's Spark cluster):** 24,952,027 of 95,395,628 games kept (26.2%), 20 GB in `data/filtered_2026-10/`. Dropped by first failed rule: base under 5 minutes 35,701,703 (37.4%), termination not Normal 30,700,571 (32.2%), rating under 1000 3,546,921 (3.7%), BOT 494,406 (0.5%). Counts in `data/filtered_2026-10/_stats.json`.
 - **Question:** The method reference and the code on the `chunk-pgn` branch disagree:
 
   | Rule | Method reference | `filter_games.py` |
@@ -144,6 +145,7 @@ from [references.md](references.md).
 - **Date:** Nov 19, 2026
 - **Status:** Decided. The 30-second cutoff is tentative (`data.min_clock_seconds`). Implemented in `pipeline/make_rows.py` (owner: Ryan, taken over from Munisa).
 - **Implementation:** the player to move's clock is the time they had left after their previous move (Lichess's `[%clk]` comment, which includes the increment), or the base time for each side's first move. On a sample of two chunks (20,584 games after the filter and the 10-minute default), the rule removed 10,091 of about 1.36M positions, about 0.7%.
+- **Full month (Nov 27, 2026):** 5,359,898 positions removed out of 822,037,031 (0.65%), from the 12,594,706 games with a base of 10 minutes or more. Counts in `data/rows_2026-10/stats.json`.
 - **Decision:** When expanding games into training rows, skip any position where the player to move had less than 30 seconds left. The clock comes from the `[%clk h:mm:ss]` comment Lichess records after each move. The rest of the game is still used, and the value target for kept positions is still the final result.
 - **Why:** Most of the quality loss in faster games happens in time scrambles, where players make rushed moves and blunders. Dropping those positions removes the worst moves from every time control, including 10-minute games, without throwing away whole games. It also lets us keep 5-minute games if we need the volume (see #11).
 - **Alternatives:** Dropping whole fast games (loses the good early and middle-game moves too); no clock filter (keeps time-scramble blunders as policy targets).
@@ -156,6 +158,7 @@ from [references.md](references.md).
 
 - **Date:** Nov 19, 2026
 - **Status:** Open until the pilot sets the budget B. The default is implemented as `data.rows_min_base_seconds: 600` in `configs/base.yaml`, applied in `pipeline/make_rows.py`.
+- **Full month with the default (Nov 27, 2026):** of the 24,952,027 filtered games, 12,355,596 (49.5%) have a base under 10 minutes and were left out; 12,594,706 went into rows. That gave 816,677,133 rows (about 65 per game), 40 GB: train 735,064,499 rows from 11,335,375 games, val 81,612,634 rows from 1,259,331 games, no game in both. About 2 hours on Ryan's Spark cluster (10 one-core workers). Adding the 5-minute games would roughly double the rows.
 - **Question:** Should the supervised training rows include 5-minute games (300+0, 300+3), or only games with a base of 10 minutes or more?
 - **Considerations:**
   - **For leaving 5-minute games out:** players have less time to find good moves, more games are decided by late blunders, and the value target z is noisier. Games of 10 minutes or more still give about 10M games, or roughly 650M positions at a median of about 60 plies.
