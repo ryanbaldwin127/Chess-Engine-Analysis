@@ -21,7 +21,7 @@ from [references.md](references.md).
 | 6 | [Run GPU work on the fish machines](#6-run-gpu-work-on-the-fish-machines) | Decided |
 | 7 | [Hand off files through the shared folder, not HDFS](#7-hand-off-files-through-the-shared-folder-not-hdfs) | Decided |
 | 8 | [Use the October 2026 Lichess month, split into 100,000-game chunks](#8-use-the-october-2026-lichess-month-split-into-100000-game-chunks) | Decided |
-| 9 | [Game filter thresholds](#9-game-filter-thresholds) | Open |
+| 9 | [Game filter thresholds](#9-game-filter-thresholds) | Decided |
 | 10 | [Drop positions played with under 30 seconds on the clock](#10-drop-positions-played-with-under-30-seconds-on-the-clock) | Decided |
 | 11 | [Which time controls go into the training rows](#11-which-time-controls-go-into-the-training-rows) | Open (after the pilot) |
 | 12 | [bf16 mixed precision on the GPU](#12-bf16-mixed-precision-on-the-gpu) | Open |
@@ -108,7 +108,8 @@ from [references.md](references.md).
 ## 9. Game filter thresholds
 
 - **Date:** Nov 19, 2026
-- **Status:** Open. Owner: Munisa.
+- **Status:** Decided, Nov 27, 2026: the proposal below, as written. Implemented in `pipeline/filter_games.py` (written by Munisa, finished by Ryan) with the thresholds in `configs/base.yaml` (`data.filter_min_base_seconds: 300`, `data.filter_min_rating: 1000`).
+- **Measured with the final rules** on 30 chunks (3M games): 25.9% kept. Dropped by first failed rule: BOT 0.5%, termination not Normal 32.3%, base under 5 minutes 37.9%, rating under 1000 3.4%. About 24.7M games for the month.
 - **Question:** The method reference and the code on the `chunk-pgn` branch disagree:
 
   | Rule | Method reference | `filter_games.py` |
